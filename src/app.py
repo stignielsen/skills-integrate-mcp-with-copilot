@@ -181,7 +181,7 @@ def init_db() -> None:
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
-    role: Literal["student", "club_representative", "admin"] = "student"
+    role: Literal["student"] = "student"
 
 
 class LoginRequest(BaseModel):
