@@ -102,18 +102,40 @@ def normalize_role(role: str) -> str:
     return aliases.get(normalized, normalized)
 
 
+PASSWORD_HASH_ITERATIONS = 600_000
+
+
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
-    digest = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
-    return f"{salt}${digest}"
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        PASSWORD_HASH_ITERATIONS,
+    ).hex()
+    return f"pbkdf2_sha256${PASSWORD_HASH_ITERATIONS}${salt}${digest}"
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
     try:
-        salt, digest = stored_hash.split("$", 1)
+        algorithm, iterations, salt, digest = stored_hash.split("$", 3)
     except ValueError:
+        try:
+            salt, digest = stored_hash.split("$", 1)
+        except ValueError:
+            return False
+        computed = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+        return secrets.compare_digest(digest, computed)
+
+    if algorithm != "pbkdf2_sha256":
         return False
-    computed = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+
+    computed = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        int(iterations),
+    ).hex()
     return secrets.compare_digest(digest, computed)
 
 
